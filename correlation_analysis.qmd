@@ -1,0 +1,103 @@
+---
+title: "correlation"
+format: html
+editor: visual
+---
+
+```{r}
+#|include = false
+library(tidyverse)
+library(readxl)
+library(ggplot2)
+library(corrplot)
+library(tsibble)
+library(data.table)
+library(gridExtra)
+```
+
+```{r}
+downtime <- fread("/Users/ecenazcalkinsin/Desktop/IE477-78/Data/downtime_starting_2022.csv")
+
+duration <- downtime %>%
+  select(event_name, start_event, duration)
+
+duration %>% head()
+```
+
+```{r}
+count <- duration %>%
+  mutate(Month = format(start_event, "%Y-%m")) %>%
+  group_by(Month) %>% 
+  summarise(
+    Cleaning_Count = sum(event_name == "Cleaning Started  / Finished" & duration > 10),
+    Malfunction_Count = sum(event_name %in% c("Machine Switched OFF / ON", "Status:OFF", "Machine Switched Off", "Maintenance Request", "Drip tray full", "Grinder 1 issue", "Grounds Container Full", "Brewer Motor") & duration > 10),
+    Machine_Switched_OFF_Count = sum(event_name == "Machine Switched OFF / ON" & duration > 10),
+    Maintenance_Request_Count = sum(event_name == "Maintenance Request" & duration > 10),
+    Drip_Tray_Full_Count = sum(event_name == "Drip tray full" & duration > 10),
+    Grinder_Issue_Count = sum(event_name == "Grinder 1 issue" & duration > 10),
+    Grounds_Container_Full_Count = sum(event_name == "Grounds Container Full" & duration > 10),
+    Brewer_Motor_Count = sum(event_name == "Brewer Motor" & duration > 10)
+  )
+
+count <- count[1:(nrow(count) - 10), ]
+count %>% head()
+```
+
+```{r}
+ggplot(data = count, aes(x = Cleaning_Count, y = Malfunction_Count))+
+  geom_point(color="black")+
+  geom_smooth(color = "black") +
+  labs(x = "Number of Cleanings", y = "Number of Malfunctions") +theme_minimal()
+```
+
+```{r}
+grid.arrange(
+  ggplot(count, aes(x = Cleaning_Count, y = Machine_Switched_OFF_Count)) +
+    geom_point(color = "black") +
+    geom_smooth(color = "black") +
+    labs(x = "Number of Cleanings", y = "Number of Machine Switched OFF Errors") + theme_minimal(),
+  
+  ggplot(count, aes(x = Cleaning_Count, y = Maintenance_Request_Count)) +
+    geom_point(color = "black") +
+    geom_smooth(color = "black") +
+    labs(x = "Number of Cleanings", y = "Number of Maintenance Requests") + theme_minimal(),
+  
+  ggplot(count, aes(x = Cleaning_Count, y = Drip_Tray_Full_Count)) +
+    geom_point(color = "black") +
+    geom_smooth(color = "black") +
+    labs(x = "Number of Cleanings", y = "Number of Drip Tray Full Errors") + theme_minimal(),
+  
+  ggplot(count, aes(x = Cleaning_Count, y = Grinder_Issue_Count)) +
+    geom_point(color = "black") +
+    geom_smooth(color = "black") +
+    labs(x = "Number of Cleanings", y = "Number of Grinder Issues") + theme_minimal(),
+  
+  ggplot(data = count, aes(x = Cleaning_Count, y = Grounds_Container_Full_Count)) +
+    geom_point(color = "black") +
+    geom_smooth(color = "black") +
+    labs(x = "Number of Cleanings", y = "Number of Grounds Container Full Errors") + theme_minimal(),
+  
+ggplot(data = count, aes(x = Cleaning_Count, y = Brewer_Motor_Count)) +
+    geom_point(color = "black") +
+    geom_smooth(color = "black") +
+    labs(x = "Number of Cleanings", y = "Number of Brewer Motor Errors") + theme_minimal(),
+  
+  ncol = 2)
+```
+
+```{r}
+selected_columns <- c("Cleaning_Count", "Machine_Switched_OFF_Count", "Maintenance_Request_Count", "Grinder_Issue_Count", "Grounds_Container_Full_Count", 
+"Brewer_Motor_Count", "Malfunction_Count")
+count_subset <- count[, selected_columns]
+
+
+if (any(is.na(count_subset))) {
+  count_subset <- na.omit(count_subset)}
+
+M <- cor(count_subset)
+
+corrplot(M, method = "number", type = "upper", tl.col = "black", diag = FALSE)
+corrplot(M, method = "pie", type = "upper", tl.col = "black", diag = FALSE)
+corrplot(M, order = 'hclust', tl.col = "black", diag = FALSE)
+corrplot(M, method = 'square', order = 'FPC', type = 'lower', tl.col = "black", diag = FALSE)
+```
